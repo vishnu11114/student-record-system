@@ -45,7 +45,7 @@ machine. Both produce the same three binaries: `student_server`,
 
 **Steps:**
 
-1. **Clone the repository.**
+1. **Clone the repository.***
    ```powershell
    git clone <this-repo-url>
    cd student-record-system
