@@ -1,0 +1,16 @@
+bin/
+out/
+.vs/
+*.o
+*.obj
+*.exe
+*.pdb
+*.ilk
+*.dSYM/
+*.tmp
+*.bak
+.DS_Store
+*.swp
+*~
+.vscode/
+.idea/

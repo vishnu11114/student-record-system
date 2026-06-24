@@ -1,0 +1,715 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Student Records · Live</title>
+<style>
+  :root {
+    --bg:        #0f1115;
+    --panel:     #161922;
+    --panel-2:   #1c2030;
+    --line:      #2a2f3f;
+    --line-2:    #353c52;
+    --text:      #e7e9ee;
+    --muted:     #9aa0b0;
+    --accent:    #ffd166;        /* warm gold - the one "spend" */
+    --accent-dim:#7d6730;
+    --ok:        #79d99a;
+    --warn:      #ffb86b;
+    --err:       #ff7a7a;
+    --mono:      ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+    --sans:      "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: var(--sans); }
+  body { min-height: 100vh; display: flex; flex-direction: column; }
+
+  /* ------- header ------------------------------------------------------ */
+  header {
+    border-bottom: 1px solid var(--line);
+    padding: 18px 28px;
+    display: flex; align-items: baseline; gap: 24px;
+    flex-wrap: wrap;
+  }
+  header .brand {
+    font-family: var(--mono);
+    font-size: 13px;
+    letter-spacing: 0.18em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+  header .brand b { color: var(--accent); font-weight: 600; }
+  header h1 {
+    font-size: 24px;
+    margin: 0;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  header h1 .sub {
+    color: var(--muted);
+    font-weight: 400;
+    margin-left: 10px;
+    font-size: 14px;
+  }
+  .conn {
+    margin-left: auto;
+    display: flex; align-items: center; gap: 10px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--err);
+    box-shadow: 0 0 0 0 rgba(255,122,122, 0.6);
+  }
+  .dot.live {
+    background: var(--ok);
+    animation: pulse 1.8s infinite;
+  }
+  @keyframes pulse {
+    0%   { box-shadow: 0 0 0 0    rgba(121,217,154, 0.55); }
+    70%  { box-shadow: 0 0 0 10px rgba(121,217,154, 0);    }
+    100% { box-shadow: 0 0 0 0    rgba(121,217,154, 0);    }
+  }
+
+  /* ------- layout ------------------------------------------------------ */
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 0;
+    min-height: 0;
+  }
+  .panel {
+    padding: 22px 28px;
+    overflow: auto;
+  }
+  .panel.right {
+    border-left: 1px solid var(--line);
+    background: var(--panel);
+  }
+  .section-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--muted);
+    margin: 0 0 10px 0;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .section-title .rule {
+    flex: 1;
+    height: 1px; background: var(--line);
+  }
+
+  /* ------- toolbar ----------------------------------------------------- */
+  .toolbar {
+    display: flex; flex-wrap: wrap; gap: 12px;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  .toolbar input[type="text"], .toolbar select {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 14px;
+    font-family: var(--sans);
+    outline: none;
+    transition: border-color 120ms;
+  }
+  .toolbar input[type="text"]:focus, .toolbar select:focus {
+    border-color: var(--accent);
+  }
+  .toolbar input[type="text"] { width: 260px; }
+  .count-pill {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 4px 12px;
+  }
+  .count-pill b { color: var(--text); }
+
+  /* ------- table ------------------------------------------------------- */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+  thead th {
+    text-align: left;
+    font-weight: 500;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--line);
+    cursor: pointer;
+    user-select: none;
+    position: sticky; top: 0;
+    background: var(--bg);
+  }
+  thead th .sort-arrow {
+    color: var(--accent);
+    font-family: var(--mono);
+    margin-left: 4px;
+  }
+  tbody td {
+    padding: 11px 12px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: middle;
+  }
+  tbody tr:hover { background: var(--panel); }
+  tbody tr.flash-create  { animation: flashIn  900ms ease-out; }
+  tbody tr.flash-update  { animation: flashUp  900ms ease-out; }
+  @keyframes flashIn {
+    0%   { background: rgba(121, 217, 154, 0.30); }
+    100% { background: transparent; }
+  }
+  @keyframes flashUp {
+    0%   { background: rgba(255, 209, 102, 0.28); }
+    100% { background: transparent; }
+  }
+  .id-cell { font-family: var(--mono); color: var(--muted); width: 60px; }
+  .age-cell { font-family: var(--mono); width: 70px; }
+  .grade-pill {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 2px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--line-2);
+    color: var(--text);
+    background: var(--panel-2);
+  }
+  .row-actions {
+    display: flex; gap: 6px;
+    opacity: 0;
+    transition: opacity 150ms;
+  }
+  tr:hover .row-actions { opacity: 1; }
+  .actions-cell { width: 130px; text-align: right; }
+  button.icon {
+    background: transparent;
+    border: 1px solid var(--line-2);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 120ms;
+  }
+  button.icon:hover { border-color: var(--accent); color: var(--accent); }
+  button.icon.danger:hover { border-color: var(--err); color: var(--err); }
+
+  .empty-state {
+    padding: 60px 20px;
+    text-align: center;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 13px;
+  }
+
+  /* ------- right panel ------------------------------------------------- */
+  .form-grid {
+    display: grid;
+    grid-template-columns: 90px 1fr;
+    gap: 10px 12px;
+    align-items: center;
+  }
+  .form-grid label {
+    font-family: var(--mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+  }
+  .form-grid input {
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 14px;
+    font-family: var(--sans);
+    outline: none;
+  }
+  .form-grid input:focus { border-color: var(--accent); }
+  .form-actions {
+    display: flex; gap: 8px; margin-top: 14px;
+  }
+  button.primary {
+    background: var(--accent);
+    color: #1a1a1a;
+    border: none;
+    border-radius: 6px;
+    padding: 9px 18px;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: var(--sans);
+    transition: filter 100ms;
+  }
+  button.primary:hover { filter: brightness(1.05); }
+  button.primary:disabled { background: var(--accent-dim); color: #555; cursor: not-allowed; }
+  button.secondary {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--line-2);
+    border-radius: 6px;
+    padding: 9px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: var(--sans);
+  }
+  button.secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+  .stats {
+    margin-top: 28px;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px 16px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .stats div { display: flex; justify-content: space-between; padding: 3px 0; }
+  .stats b { color: var(--text); font-weight: 500; }
+
+  .log {
+    margin-top: 20px;
+    max-height: 240px;
+    overflow: auto;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-family: var(--mono);
+    font-size: 11px;
+    line-height: 1.6;
+    color: var(--muted);
+  }
+  .log .l-ok  { color: var(--ok); }
+  .log .l-up  { color: var(--accent); }
+  .log .l-del { color: var(--err); }
+  .log .l-evt { color: var(--text); }
+
+  /* ------- pagination -------------------------------------------------- */
+  .pager {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 0 4px 0;
+    font-family: var(--mono); font-size: 12px;
+    color: var(--muted);
+  }
+  .pager button {
+    background: transparent;
+    border: 1px solid var(--line-2);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  .pager button:disabled { opacity: 0.35; cursor: not-allowed; }
+  .pager .info { margin-right: auto; }
+
+  /* ------- responsive -------------------------------------------------- */
+  @media (max-width: 900px) {
+    main { grid-template-columns: 1fr; }
+    .panel.right { border-left: none; border-top: 1px solid var(--line); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand"><b>SRMS</b> · STUDENT RECORDS</div>
+  <h1>Live registry <span class="sub" id="subtitle">Updating in real-time over WebSocket</span></h1>
+  <div class="conn">
+    <span class="dot" id="connDot"></span>
+    <span id="connText">disconnected</span>
+  </div>
+</header>
+
+<main>
+  <section class="panel">
+    <div class="section-title">Records <span class="rule"></span></div>
+
+    <div class="toolbar">
+      <input type="text" id="filter" placeholder="Filter by name, grade, or id..." />
+      <select id="gradeFilter">
+        <option value="">All grades</option>
+      </select>
+      <select id="pageSize">
+        <option value="10">10 per page</option>
+        <option value="25" selected>25 per page</option>
+        <option value="50">50 per page</option>
+        <option value="200">200 per page</option>
+      </select>
+      <span class="count-pill"><b id="visibleCount">0</b> / <b id="totalCount">0</b> shown</span>
+    </div>
+
+    <table id="tbl">
+      <thead>
+        <tr>
+          <th data-sort="id"    class="id-cell">id</th>
+          <th data-sort="name">name</th>
+          <th data-sort="age"   class="age-cell">age</th>
+          <th data-sort="grade">grade</th>
+          <th class="actions-cell"></th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+
+    <div id="empty" class="empty-state" style="display:none">No records to display. Add one on the right →</div>
+
+    <div class="pager" id="pager">
+      <span class="info" id="pagerInfo"></span>
+      <button id="prevBtn">‹ prev</button>
+      <span id="pageInfo">1 / 1</span>
+      <button id="nextBtn">next ›</button>
+    </div>
+  </section>
+
+  <aside class="panel right">
+    <div class="section-title">New / edit record <span class="rule"></span></div>
+    <div class="form-grid">
+      <label for="f-id">id</label>     <input type="number" id="f-id" min="1" />
+      <label for="f-name">name</label> <input type="text"   id="f-name" placeholder="Full name" />
+      <label for="f-age">age</label>   <input type="number" id="f-age" min="1" max="120" />
+      <label for="f-grade">grade</label><input type="text"  id="f-grade" placeholder="A, B+, etc" />
+    </div>
+    <div class="form-actions">
+      <button class="primary" id="saveBtn">Add record</button>
+      <button class="secondary" id="clearBtn">Reset</button>
+    </div>
+
+    <div class="section-title" style="margin-top:28px">Stats <span class="rule"></span></div>
+    <div class="stats">
+      <div><span>records</span>      <b id="s-count">0</b></div>
+      <div><span>clients</span>      <b id="s-clients">—</b></div>
+      <div><span>load (csv)</span>   <b id="s-load">—</b></div>
+      <div><span>last save</span>    <b id="s-save">—</b></div>
+      <div><span>last sort</span>    <b id="s-sort">—</b></div>
+      <div><span>last broadcast</span><b id="s-bcast">—</b></div>
+    </div>
+
+    <div class="section-title" style="margin-top:24px">Event log <span class="rule"></span></div>
+    <div class="log" id="log"></div>
+  </aside>
+</main>
+
+<script>
+  // ============== state ===============================================
+  const state = {
+    ws: null,
+    students: new Map(),       // id -> {id,name,age,grade}
+    sort: { by: "id", asc: true },
+    page: 0,
+    pageSize: 25,
+    filter: "",
+    gradeFilter: "",
+    editingId: null,
+  };
+
+  const $ = (id) => document.getElementById(id);
+
+  // ============== websocket ===========================================
+  function connect() {
+    const url = `ws://${location.hostname || "localhost"}:9001/`;
+    log(`connecting to ${url}…`, "l-evt");
+    state.ws = new WebSocket(url);
+    state.ws.onopen = () => {
+      setConn(true);
+      log("connected", "l-ok");
+      send({ op: "list" });
+      send({ op: "stats" });
+    };
+    state.ws.onclose = () => {
+      setConn(false);
+      log("disconnected — retrying in 2s", "l-del");
+      setTimeout(connect, 2000);
+    };
+    state.ws.onerror = () => log("socket error", "l-del");
+    state.ws.onmessage = (m) => {
+      let msg;
+      try { msg = JSON.parse(m.data); }
+      catch (e) { log("bad message: " + e, "l-del"); return; }
+      handleEvent(msg);
+    };
+  }
+
+  function send(obj) {
+    if (state.ws && state.ws.readyState === 1) {
+      state.ws.send(JSON.stringify(obj));
+    }
+  }
+
+  function setConn(live) {
+    $("connDot").classList.toggle("live", live);
+    $("connText").textContent = live ? "live · ws://" + location.hostname + ":9001" : "disconnected";
+  }
+
+  // ============== event handling ======================================
+  function handleEvent(msg) {
+    switch (msg.event) {
+      case "snapshot":
+      case "sorted":
+      case "search_result":
+        if (msg.event === "snapshot") {
+          state.students.clear();
+          for (const s of (msg.students || [])) state.students.set(s.id, s);
+          log(`snapshot · ${msg.count ?? msg.students.length} records`, "l-evt");
+        } else if (msg.event === "sorted") {
+          // we drive sorting client-side so we only refresh stats
+          $("s-sort").textContent = (msg.sortMs || 0).toFixed(2) + " ms";
+        }
+        render();
+        break;
+      case "created":
+        state.students.set(msg.student.id, msg.student);
+        log(`+ created #${msg.student.id} ${msg.student.name}`, "l-ok");
+        render(msg.student.id, "flash-create");
+        break;
+      case "updated":
+        state.students.set(msg.student.id, msg.student);
+        log(`~ updated #${msg.student.id} ${msg.student.name}`, "l-up");
+        render(msg.student.id, "flash-update");
+        break;
+      case "deleted":
+        state.students.delete(msg.id);
+        log(`× deleted #${msg.id}`, "l-del");
+        render();
+        break;
+      case "error":
+        log("error: " + msg.message, "l-del");
+        break;
+      case "ack":
+        log("ack: " + msg.op, "l-evt");
+        if (msg.op === "create" || msg.op === "update" || msg.op === "delete") {
+          send({ op: "stats" });
+        }
+        break;
+      case "stats":
+        $("s-count").textContent   = msg.count ?? "—";
+        $("s-clients").textContent = msg.clients ?? "—";
+        $("s-load").textContent    = msg.loadMs ? msg.loadMs.toFixed(2) + " ms" : "—";
+        $("s-save").textContent    = msg.lastSaveMs ? msg.lastSaveMs.toFixed(2) + " ms" : "—";
+        $("s-sort").textContent    = msg.lastSortMs ? msg.lastSortMs.toFixed(2) + " ms" : "—";
+        $("s-bcast").textContent   = msg.lastBroadcastMs ? msg.lastBroadcastMs.toFixed(2) + " ms" : "—";
+        break;
+      default:
+        log("event: " + msg.event, "l-evt");
+    }
+  }
+
+  // ============== rendering ===========================================
+  function visibleRecords() {
+    const f = state.filter.trim().toLowerCase();
+    const gf = state.gradeFilter;
+    let rows = Array.from(state.students.values());
+    if (f) {
+      rows = rows.filter(s =>
+        String(s.id).includes(f) ||
+        (s.name || "").toLowerCase().includes(f) ||
+        (s.grade || "").toLowerCase().includes(f));
+    }
+    if (gf) rows = rows.filter(s => s.grade === gf);
+    const { by, asc } = state.sort;
+    rows.sort((a, b) => {
+      const av = a[by], bv = b[by];
+      if (typeof av === "number") return asc ? av - bv : bv - av;
+      return asc ? String(av).localeCompare(String(bv))
+                 : String(bv).localeCompare(String(av));
+    });
+    return rows;
+  }
+
+  function render(highlightId, cssClass) {
+    // grade filter options
+    const grades = Array.from(new Set(Array.from(state.students.values())
+      .map(s => s.grade).filter(Boolean))).sort();
+    const sel = $("gradeFilter");
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">All grades</option>' +
+      grades.map(g => `<option value="${escapeAttr(g)}"${g===cur?" selected":""}>${escapeText(g)}</option>`).join("");
+
+    const rows = visibleRecords();
+    $("totalCount").textContent = state.students.size;
+    $("visibleCount").textContent = rows.length;
+
+    const ps = state.pageSize;
+    const pages = Math.max(1, Math.ceil(rows.length / ps));
+    if (state.page >= pages) state.page = pages - 1;
+    if (state.page < 0) state.page = 0;
+    const slice = rows.slice(state.page * ps, (state.page + 1) * ps);
+
+    $("pageInfo").textContent = `${state.page + 1} / ${pages}`;
+    $("pagerInfo").textContent = rows.length === 0 ? "" :
+      `showing ${state.page * ps + 1}–${state.page * ps + slice.length} of ${rows.length}`;
+    $("prevBtn").disabled = state.page === 0;
+    $("nextBtn").disabled = state.page >= pages - 1;
+
+    const tbody = $("tbody");
+    tbody.innerHTML = "";
+    for (const s of slice) {
+      const tr = document.createElement("tr");
+      tr.dataset.id = s.id;
+      tr.innerHTML = `
+        <td class="id-cell">#${s.id}</td>
+        <td>${escapeText(s.name)}</td>
+        <td class="age-cell">${s.age}</td>
+        <td><span class="grade-pill">${escapeText(s.grade)}</span></td>
+        <td class="actions-cell">
+          <div class="row-actions">
+            <button class="icon" data-act="edit">edit</button>
+            <button class="icon danger" data-act="del">delete</button>
+          </div>
+        </td>`;
+      tbody.appendChild(tr);
+      if (s.id === highlightId && cssClass) {
+        // re-apply animation
+        requestAnimationFrame(() => tr.classList.add(cssClass));
+      }
+    }
+
+    // sort arrows
+    document.querySelectorAll("thead th[data-sort]").forEach(th => {
+      const key = th.dataset.sort;
+      let arrow = "";
+      if (state.sort.by === key) arrow = ` <span class="sort-arrow">${state.sort.asc ? "↑" : "↓"}</span>`;
+      th.innerHTML = th.dataset.label ? (th.dataset.label + arrow)
+                                      : (th.firstChild.textContent.replace(/[↑↓]\s*$/, "").trim() + arrow);
+    });
+
+    $("empty").style.display = state.students.size === 0 ? "block" : "none";
+  }
+
+  function escapeText(s) {
+    return String(s ?? "")
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+  function escapeAttr(s) {
+    return escapeText(s).replace(/"/g, "&quot;");
+  }
+
+  // ============== event log ===========================================
+  function log(text, cls) {
+    const el = $("log");
+    const line = document.createElement("div");
+    line.className = cls || "";
+    const now = new Date();
+    const t = String(now.getHours()).padStart(2, "0") + ":" +
+              String(now.getMinutes()).padStart(2, "0") + ":" +
+              String(now.getSeconds()).padStart(2, "0");
+    line.textContent = `${t}  ${text}`;
+    el.insertBefore(line, el.firstChild);
+    // cap log length
+    while (el.childElementCount > 80) el.removeChild(el.lastChild);
+  }
+
+  // ============== form interactions ==================================
+  function readForm() {
+    return {
+      id:    parseInt($("f-id").value, 10),
+      name:  $("f-name").value.trim(),
+      age:   parseInt($("f-age").value, 10),
+      grade: $("f-grade").value.trim(),
+    };
+  }
+  function writeForm(s) {
+    $("f-id").value    = s ? s.id    : "";
+    $("f-name").value  = s ? s.name  : "";
+    $("f-age").value   = s ? s.age   : "";
+    $("f-grade").value = s ? s.grade : "";
+    state.editingId = s ? s.id : null;
+    $("saveBtn").textContent = state.editingId == null ? "Add record" : `Update #${state.editingId}`;
+    if (state.editingId != null) {
+      $("f-id").disabled = true;
+    } else {
+      $("f-id").disabled = false;
+    }
+  }
+  function resetForm() { writeForm(null); }
+
+  $("saveBtn").addEventListener("click", () => {
+    const s = readForm();
+    if (!Number.isFinite(s.id) || s.id < 1) return log("invalid id", "l-del");
+    if (!s.name)                            return log("name required", "l-del");
+    if (!Number.isFinite(s.age) || s.age < 1) return log("invalid age", "l-del");
+    if (!s.grade)                            return log("grade required", "l-del");
+    if (state.editingId != null) send({ op: "update", student: s });
+    else                          send({ op: "create", student: s });
+    resetForm();
+  });
+  $("clearBtn").addEventListener("click", resetForm);
+
+  // ============== table interactions =================================
+  document.querySelector("thead").addEventListener("click", (e) => {
+    const th = e.target.closest("th[data-sort]");
+    if (!th) return;
+    const key = th.dataset.sort;
+    if (state.sort.by === key) state.sort.asc = !state.sort.asc;
+    else { state.sort.by = key; state.sort.asc = true; }
+    // ask server too so backend metrics update
+    send({ op: "sort", by: state.sort.by, order: state.sort.asc ? "asc" : "desc" });
+    render();
+  });
+
+  $("tbody").addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-act]");
+    if (!btn) return;
+    const tr = btn.closest("tr");
+    const id = parseInt(tr.dataset.id, 10);
+    const stu = state.students.get(id);
+    if (!stu) return;
+    if (btn.dataset.act === "edit") {
+      writeForm(stu);
+      $("f-name").focus();
+    } else if (btn.dataset.act === "del") {
+      if (confirm(`Delete record #${id} (${stu.name})?`)) {
+        send({ op: "delete", id });
+      }
+    }
+  });
+
+  $("filter").addEventListener("input", (e) => {
+    state.filter = e.target.value;
+    state.page = 0;
+    render();
+  });
+  $("gradeFilter").addEventListener("change", (e) => {
+    state.gradeFilter = e.target.value;
+    state.page = 0;
+    render();
+  });
+  $("pageSize").addEventListener("change", (e) => {
+    state.pageSize = parseInt(e.target.value, 10);
+    state.page = 0;
+    render();
+  });
+  $("prevBtn").addEventListener("click", () => { state.page--; render(); });
+  $("nextBtn").addEventListener("click", () => { state.page++; render(); });
+
+  // periodic stats refresh
+  setInterval(() => { if (state.ws && state.ws.readyState === 1) send({ op: "stats" }); }, 5000);
+
+  // ============== go =================================================
+  connect();
+</script>
+
+</body>
+</html>
